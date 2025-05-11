@@ -81,12 +81,18 @@ if st.button("Generate"):
                         clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
                         final = out / clean_name
                         ff(["ffmpeg","-y","-f","concat","-safe","0","-i",str(cat),"-c","copy",str(final)])
-                        exported_videos.append(str(final))
+                        if final.exists():
+                            exported_videos.append(str(final.resolve()))
+                        else:
+                            st.error(f"Failed to generate video: {final}")
                 else:
                     clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
                     final = out / clean_name
                     shutil.copy(h_vo, final)
-                    exported_videos.append(str(final))
+                    if final.exists():
+                        exported_videos.append(str(final.resolve()))
+                    else:
+                        st.error(f"Failed to generate video: {final}")
 
             except Exception as e:
                 st.error(f"Error: {e}")
@@ -101,27 +107,31 @@ st.info("Click the download icon next to each video to download it. They will be
 if st.session_state["exported_videos"]:
     for i, video_path in enumerate(st.session_state["exported_videos"]):
         video_path = Path(video_path)
-        cols = st.columns([0.08, 0.72, 0.2])
-        with cols[0]:
-            st.markdown(":arrow_down:", unsafe_allow_html=True)
-        with cols[1]:
-            st.markdown(f"**{video_path.name}**")
-        with cols[2]:
-            with open(video_path, "rb") as video_file:
-                st.download_button(
-                    label="Download",
-                    data=video_file.read(),
-                    file_name=video_path.name,
-                    mime="video/mp4",
-                    key=f"download_{i}"
-                )
+        if video_path.exists():
+            cols = st.columns([0.08, 0.72, 0.2])
+            with cols[0]:
+                st.markdown(":arrow_down:", unsafe_allow_html=True)
+            with cols[1]:
+                st.markdown(f"**{video_path.name}**")
+            with cols[2]:
+                with open(video_path, "rb") as video_file:
+                    st.download_button(
+                        label="Download",
+                        data=video_file.read(),
+                        file_name=video_path.name,
+                        mime="video/mp4",
+                        key=f"download_{i}"
+                    )
+        else:
+            st.error(f"File not found: {video_path}")
 
     # Download all as ZIP
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
         for video_path in st.session_state["exported_videos"]:
             video_path = Path(video_path)
-            zipf.write(video_path, arcname=video_path.name)
+            if video_path.exists():
+                zipf.write(video_path, arcname=video_path.name)
     zip_buffer.seek(0)
     st.download_button(
         label="Download All Videos as ZIP",
