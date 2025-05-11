@@ -6,6 +6,15 @@ from datetime import datetime
 import zipfile
 import io
 
+# Minimal ffmpeg/ffprobe check for debugging
+try:
+    ffmpeg_version = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ffprobe_version = subprocess.run(["ffprobe", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    st.info(f"FFmpeg version: {ffmpeg_version.stdout.decode().splitlines()[0]}")
+    st.info(f"FFprobe version: {ffprobe_version.stdout.decode().splitlines()[0]}")
+except Exception as e:
+    st.error(f"FFmpeg/ffprobe not available: {e}")
+
 st.set_page_config(page_title="Clipstorm", layout="centered")
 st.title("🎥 Clipstorm Video Generator")
 
