@@ -25,13 +25,6 @@ def get_duration(fp: Path):
 
 def ff(cmd): subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def open_folder(path: Path):
-    try:
-        if platform.system() == "Darwin": subprocess.run(["open", str(path)])
-        elif platform.system() == "Windows": os.startfile(str(path))
-        else: subprocess.run(["xdg-open", str(path)])
-    except: pass
-
 prefix = st.text_input("Filename prefix", "")
 hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multiple_files=True)
 voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3"], accept_multiple_files=True)
@@ -86,8 +79,7 @@ if st.button("Generate"):
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    open_folder(out)
-    st.success(f"Done! Files in {out}")
+    st.success(f"Done! Your videos are ready to download below.")
 
     # Individual download buttons
     for video_path in exported_videos:
