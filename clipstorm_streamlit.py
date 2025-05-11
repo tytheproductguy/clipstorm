@@ -28,7 +28,7 @@ def ff(cmd): subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=s
 
 prefix = st.text_input("Filename prefix", "")
 hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multiple_files=True)
-voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3"], accept_multiple_files=True)
+voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a"], accept_multiple_files=True)
 bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
 
 # Helper to strip extensions from all parts of a filename
