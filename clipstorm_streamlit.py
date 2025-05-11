@@ -6,6 +6,7 @@ from datetime import datetime
 import zipfile
 import io
 import whisper
+import json
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 
@@ -64,6 +65,13 @@ def write_srt(segments, out_path):
             f.write(f"{i+1}\n")
             f.write(f"{format_srt_time(start)} --> {format_srt_time(end)}\n")
             f.write(f"{text}\n\n")
+
+def get_video_height(fp: Path):
+    r = subprocess.run([
+        "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "json", str(fp)
+    ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    info = json.loads(r.stdout)
+    return info['streams'][0]['height'] if 'streams' in info and info['streams'] else 720
 
 prefix = st.text_input("Filename prefix", "")
 hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multiple_files=True)
@@ -248,11 +256,15 @@ elif st.button("Generate with Captions"):
                 srt_path = tmp / f"{h_path.stem}_{v_path.stem}.srt"
                 write_srt(result['segments'], srt_path)
 
-                # Burn captions into video (TikTok style: white bold, black outline, centered, smaller font, no shadow)
+                # Dynamically set font size, outline, and y-position for captions
+                video_h = get_video_height(h_vo)
+                font_size = int(video_h * 0.05)
+                stroke_width = int(video_h * 0.003)
+                margin_v = int(video_h - (0.85 * video_h))  # ffmpeg MarginV is from bottom
                 captioned = tmp / f"{h_path.stem}_{v_path.stem}_captioned.mp4"
                 ff([
                     "ffmpeg", "-y", "-i", str(h_vo),
-                    "-vf", f"subtitles='{srt_path}':force_style='Fontname=Arial,Fontsize=28,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline=3,Shadow=0,Alignment=2,Bold=1'",
+                    "-vf", f"subtitles='{srt_path}':force_style='Fontname=Arial,Fontsize={font_size},PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline={stroke_width},Shadow=0,Alignment=2,Bold=1,MarginV={margin_v}'",
                     "-c:a", "copy", str(captioned)
                 ])
 
