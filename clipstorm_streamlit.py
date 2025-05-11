@@ -11,7 +11,19 @@ st.set_page_config(page_title="Clipstorm", layout="centered")
 st.title("🎥 Clipstorm Video Generator")
 
 def trim_silence(fp: Path, tmp: Path):
-    audio = AudioSegment.from_file(fp)
+    try:
+        audio = AudioSegment.from_file(fp)
+    except Exception as e:
+        # Fallback: convert to wav with ffmpeg and try again
+        if fp.suffix.lower() == ".m4a":
+            converted = tmp / f"{fp.stem}_converted.wav"
+            subprocess.run([
+                "ffmpeg", "-y", "-i", str(fp), str(converted)
+            ], check=True)
+            audio = AudioSegment.from_file(converted)
+            fp = converted
+        else:
+            raise e
     chunks = silence.split_on_silence(audio, min_silence_len=300, silence_thresh=audio.dBFS-30, keep_silence=150)
     if not chunks: return fp, len(audio)/1000
     trimmed = sum(chunks, AudioSegment.silent(0))
