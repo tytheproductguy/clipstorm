@@ -66,23 +66,21 @@ if st.button("Generate"):
     exported_videos = []
     short_hook_warnings = []
 
-    # Show uploaded file durations
+    # Show uploaded file durations immediately after upload
     if hooks:
         st.markdown("#### Hook video durations:")
         for h in hooks:
-            h_path = tmp / h.name
+            h_path = Path(tempfile.gettempdir()) / h.name
             with open(h_path, "wb") as f: f.write(h.getbuffer())
             dur = get_duration(h_path)
             st.write(f"{h.name}: {dur:.2f} seconds")
     if voices:
-        st.markdown("#### Voiceover durations (before/after trimming):")
+        st.markdown("#### Voiceover durations:")
         for v in voices:
-            v_path = tmp / v.name
+            v_path = Path(tempfile.gettempdir()) / v.name
             with open(v_path, "wb") as f: f.write(v.getbuffer())
-            orig_dur = get_duration(v_path)
-            trimmed, trimmed_dur = trim_silence(v_path, tmp)
-            percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
-            st.write(f"{v.name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
+            dur = get_duration(v_path)
+            st.write(f"{v.name}: {dur:.2f} seconds")
 
     for h in hooks:
         h_path = tmp / h.name
