@@ -62,7 +62,9 @@ if voices:
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
 
+processing = False
 if st.button("Generate"):
+    processing = True
     if not prefix: st.error("Enter a prefix"); st.stop()
     if not hooks or not voices: st.error("Upload at least one hook and voice"); st.stop()
 
@@ -163,11 +165,19 @@ if st.button("Generate"):
         for w in short_hook_warnings:
             st.warning(w)
 
+    processing = False
+    st.session_state["generate_pressed"] = True
+else:
+    st.session_state["generate_pressed"] = False
+
 # After processing, always show download buttons if videos exist
 st.markdown("### Download your videos:")
-st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
 
-if st.session_state["exported_videos"]:
+if processing:
+    with st.spinner("Processing videos, please wait..."):
+        pass
+elif st.session_state["exported_videos"]:
+    st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
     for i, video_path in enumerate(st.session_state["exported_videos"]):
         video_path = Path(video_path)
         if video_path.exists():
@@ -187,7 +197,6 @@ if st.session_state["exported_videos"]:
                     )
         else:
             st.error(f"File not found: {video_path}")
-
     # Download all as ZIP
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
@@ -203,6 +212,8 @@ if st.session_state["exported_videos"]:
         mime="application/zip",
         key="download_zip"
     )
+elif st.session_state.get("generate_pressed", False):
+    st.warning("No videos were generated. Please check your inputs and try again.")
 else:
-    st.warning("No videos available for download.")
+    st.info("Upload your files and click Generate to create videos.")
 
