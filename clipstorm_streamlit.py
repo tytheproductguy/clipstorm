@@ -24,9 +24,12 @@ def trim_silence(fp: Path, tmp: Path):
             fp = converted
         else:
             raise e
-    chunks = silence.split_on_silence(audio, min_silence_len=300, silence_thresh=audio.dBFS-30, keep_silence=150)
-    if not chunks: return fp, len(audio)/1000
-    trimmed = sum(chunks, AudioSegment.silent(0))
+    nonsilent = silence.detect_nonsilent(audio, min_silence_len=200, silence_thresh=audio.dBFS-30)
+    if not nonsilent:
+        return fp, len(audio)/1000
+    start_trim = nonsilent[0][0]
+    end_trim = nonsilent[-1][1]
+    trimmed = audio[start_trim:end_trim]
     out = tmp / f"{fp.stem}_trimmed.wav"
     trimmed.export(out, format="wav")
     return out, len(trimmed)/1000
