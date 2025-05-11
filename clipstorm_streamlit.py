@@ -64,6 +64,25 @@ if st.button("Generate"):
     progress = st.progress(0)
     idx = 0
     exported_videos = []
+    short_hook_warnings = []
+
+    # Show uploaded file durations
+    if hooks:
+        st.markdown("#### Hook video durations:")
+        for h in hooks:
+            h_path = tmp / h.name
+            with open(h_path, "wb") as f: f.write(h.getbuffer())
+            dur = get_duration(h_path)
+            st.write(f"{h.name}: {dur:.2f} seconds")
+    if voices:
+        st.markdown("#### Voiceover durations (before/after trimming):")
+        for v in voices:
+            v_path = tmp / v.name
+            with open(v_path, "wb") as f: f.write(v.getbuffer())
+            orig_dur = get_duration(v_path)
+            trimmed, trimmed_dur = trim_silence(v_path, tmp)
+            percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
+            st.write(f"{v.name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
 
     for h in hooks:
         h_path = tmp / h.name
@@ -77,6 +96,9 @@ if st.button("Generate"):
 
             try:
                 trimmed, dur = trim_silence(v_path, tmp)
+                hook_dur = get_duration(h_path)
+                if hook_dur < dur:
+                    short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
                 if get_duration(h_path) < dur: continue
 
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
@@ -144,6 +166,10 @@ if st.button("Generate"):
 
     st.session_state["exported_videos"] = exported_videos
     st.success(f"Done! Your videos are ready to download below.")
+
+    if short_hook_warnings:
+        for w in short_hook_warnings:
+            st.warning(w)
 
 # After processing, always show download buttons if videos exist
 st.markdown("### Download your videos:")
