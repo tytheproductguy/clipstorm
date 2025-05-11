@@ -110,7 +110,7 @@ if st.button("Generate"):
                 if get_duration(h_path) < dur: continue
 
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
-                ff(["ffmpeg","-y","-i",str(h_path),"-t",str(dur),"-c:v","libx264","-c:a","aac",str(h_cut)])
+                ff(["ffmpeg","-y","-i",str(h_path),"-t",str(dur),"-c:v","libx264","-preset","veryfast","-c:a","aac",str(h_cut)])
                 h_vo = tmp / f"{h_path.stem}_{v_path.stem}_ov.mp4"
                 ff(["ffmpeg","-y","-i",str(h_cut),"-i",str(trimmed),"-c:v","copy","-map","0:v","-map","1:a","-shortest",str(h_vo)])
 
@@ -122,12 +122,12 @@ if st.button("Generate"):
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(h_vo),
-                            "-c:v", "libx264", "-c:a", "aac", str(h_vo_reenc)
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
                         ])
                         body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(b_path),
-                            "-c:v", "libx264", "-c:a", "aac", str(body_reenc)
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
                         ])
                         concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_concat.mp4"
                         ff([
@@ -136,7 +136,7 @@ if st.button("Generate"):
                             "-i", str(body_reenc),
                             "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
                             "-map", "[v]", "-map", "[a]",
-                            "-c:v", "libx264", "-c:a", "aac",
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac",
                             str(concat_out)
                         ])
                         try:
@@ -167,7 +167,7 @@ if st.button("Generate"):
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(h_vo),
-                            "-c:v", "libx264", "-c:a", "aac", str(h_vo_reenc)
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
                         ])
                         shutil.copy(h_vo_reenc, final)
                     if final.exists():
