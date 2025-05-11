@@ -3,6 +3,8 @@ from pathlib import Path
 from pydub import AudioSegment, silence
 import streamlit as st
 from datetime import datetime
+import zipfile
+import io
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 st.title("🎥 Clipstorm Video Generator")
@@ -46,6 +48,7 @@ if st.button("Generate"):
     total = len(hooks) * len(voices) * max(1, len(bodies))
     progress = st.progress(0)
     idx = 0
+    exported_videos = []
 
     for h in hooks:
         h_path = tmp / h.name
@@ -74,13 +77,39 @@ if st.button("Generate"):
                         with open(cat, "w") as f: f.write(f"file '{h_vo}'\nfile '{b_path}'\n")
                         final = out / f"{prefix}_{h.name}_{v.name}_{b.name}.mp4"
                         ff(["ffmpeg","-y","-f","concat","-safe","0","-i",str(cat),"-c","copy",str(final)])
+                        exported_videos.append(final)
                 else:
                     final = out / f"{prefix}_{h.name}_{v.name}.mp4"
                     shutil.copy(h_vo, final)
+                    exported_videos.append(final)
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
     open_folder(out)
     st.success(f"Done! Files in {out}")
+
+    # Individual download buttons
+    for video_path in exported_videos:
+        with open(video_path, "rb") as video_file:
+            st.download_button(
+                label=f"Download {video_path.name}",
+                data=video_file,
+                file_name=video_path.name,
+                mime="video/mp4"
+            )
+
+    # Download all as ZIP
+    if exported_videos:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zipf:
+            for video_path in exported_videos:
+                zipf.write(video_path, arcname=video_path.name)
+        zip_buffer.seek(0)
+        st.download_button(
+            label="Download All Videos as ZIP",
+            data=zip_buffer,
+            file_name="all_videos.zip",
+            mime="application/zip"
+        )
 
