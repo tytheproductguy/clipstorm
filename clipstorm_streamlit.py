@@ -130,17 +130,3 @@ if st.session_state["exported_videos"]:
         key="download_zip"
     )
 
-def js_reload():
-    st.markdown(
-        """
-        <script>
-        window.location.reload();
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
-
-if st.button("Reset for New Batch"):
-    js_reload()
-    st.stop()
-
