@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import datetime
 import zipfile
 import io
+import whisper
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 
@@ -44,6 +45,25 @@ def get_duration(fp: Path):
     return float(r.stdout) if r.stdout else 0.0
 
 def ff(cmd): subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def write_srt(segments, out_path):
+    def format_srt_time(seconds):
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = int(seconds % 60)
+        ms = int((seconds - int(seconds)) * 1000)
+        return f"{h:02}:{m:02}:{s:02},{ms:03}"
+    with open(out_path, "w") as f:
+        for i, seg in enumerate(segments):
+            start = seg['start']
+            end = seg['end']
+            text = seg['text'].strip()
+            # Remove trailing period
+            if text.endswith('.'):
+                text = text[:-1]
+            f.write(f"{i+1}\n")
+            f.write(f"{format_srt_time(start)} --> {format_srt_time(end)}\n")
+            f.write(f"{text}\n\n")
 
 prefix = st.text_input("Filename prefix", "")
 hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multiple_files=True)
@@ -185,6 +205,109 @@ if st.button("Generate"):
         for w in short_hook_warnings:
             st.warning(w)
 
+    processing = False
+    st.session_state["generate_pressed"] = True
+elif st.button("Generate with Captions"):
+    processing = True
+    if not prefix: st.error("Enter a prefix"); st.stop()
+    if not hooks or not voices: st.error("Upload at least one hook and voice"); st.stop()
+
+    tmp = Path(tempfile.mkdtemp())
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out = Path("rendered_videos") / f"{prefix}_captions_{timestamp}"
+    out.mkdir(parents=True, exist_ok=True)
+    total = len(hooks) * len(voices) * max(1, len(bodies))
+    progress = st.progress(0)
+    idx = 0
+    exported_videos = []
+    short_hook_warnings = []
+    model = whisper.load_model("base")
+
+    for h in hooks:
+        h_path = tmp / h.name
+        with open(h_path, "wb") as f: f.write(h.getbuffer())
+        for v_idx, v in enumerate(voices):
+            idx += 1
+            progress.progress(idx/total)
+            st.write(f"{h.name} + {v.name} (with captions)")
+            trimmed, dur = trimmed_voices[v_idx]
+            v_path = Path(tempfile.gettempdir()) / v.name
+            try:
+                hook_dur = get_duration(h_path)
+                if hook_dur < dur:
+                    short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
+                if get_duration(h_path) < dur: continue
+
+                h_cut = tmp / f"{h_path.stem}_cut.mp4"
+                ff(["ffmpeg","-y","-i",str(h_path),"-t",str(dur),"-c:v","libx264","-preset","veryfast","-c:a","aac",str(h_cut)])
+                h_vo = tmp / f"{h_path.stem}_{v_path.stem}_ov.mp4"
+                ff(["ffmpeg","-y","-i",str(h_cut),"-i",str(trimmed),"-c:v","copy","-map","0:v","-map","1:a","-shortest",str(h_vo)])
+
+                # Transcribe trimmed audio with Whisper
+                result = model.transcribe(str(trimmed), word_timestamps=False)
+                srt_path = tmp / f"{h_path.stem}_{v_path.stem}.srt"
+                write_srt(result['segments'], srt_path)
+
+                # Burn captions into video (TikTok style: white bold, black outline, centered, smaller font, no shadow)
+                captioned = tmp / f"{h_path.stem}_{v_path.stem}_captioned.mp4"
+                ff([
+                    "ffmpeg", "-y", "-i", str(h_vo),
+                    "-vf", f"subtitles='{srt_path}':force_style='Fontname=Arial,Fontsize=28,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline=3,Shadow=0,Alignment=2,Bold=1'",
+                    "-c:a", "copy", str(captioned)
+                ])
+
+                if bodies:
+                    for b in bodies:
+                        b_path = tmp / b.name
+                        with open(b_path, "wb") as f: f.write(b.getbuffer())
+                        h_vo_reenc = tmp / f"{captioned.stem}_reenc.mp4"
+                        ff([
+                            "ffmpeg", "-y", "-i", str(captioned),
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
+                        ])
+                        body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
+                        ff([
+                            "ffmpeg", "-y", "-i", str(b_path),
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
+                        ])
+                        concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_captioned_concat.mp4"
+                        ff([
+                            "ffmpeg", "-y",
+                            "-i", str(h_vo_reenc),
+                            "-i", str(body_reenc),
+                            "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
+                            "-map", "[v]", "-map", "[a]",
+                            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac",
+                            str(concat_out)
+                        ])
+                        try:
+                            clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}_captioned") + ".mp4"
+                        except Exception:
+                            clean_name = f"output_{idx}_captioned.mp4"
+                        final = out / clean_name
+                        shutil.copy(concat_out, final)
+                        if final.exists():
+                            exported_videos.append(str(final.resolve()))
+                        else:
+                            st.error(f"Failed to generate video: {final}")
+                else:
+                    try:
+                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_captioned") + ".mp4"
+                    except Exception:
+                        clean_name = f"output_{idx}_captioned.mp4"
+                    final = out / clean_name
+                    shutil.copy(captioned, final)
+                    if final.exists():
+                        exported_videos.append(str(final.resolve()))
+                    else:
+                        st.error(f"Failed to generate video: {final}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+    st.session_state["exported_videos"] = exported_videos
+    st.success(f"Done! Your captioned videos are ready to download below.")
+    if short_hook_warnings:
+        for w in short_hook_warnings:
+            st.warning(w)
     processing = False
     st.session_state["generate_pressed"] = True
 else:
