@@ -8,15 +8,6 @@ import io
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 
-# Minimal ffmpeg/ffprobe check for debugging
-try:
-    ffmpeg_version = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    ffprobe_version = subprocess.run(["ffprobe", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    st.info(f"FFmpeg version: {ffmpeg_version.stdout.decode().splitlines()[0]}")
-    st.info(f"FFprobe version: {ffprobe_version.stdout.decode().splitlines()[0]}")
-except Exception as e:
-    st.error(f"FFmpeg/ffprobe not available: {e}")
-
 st.title("🎥 Clipstorm Video Generator")
 
 def trim_silence(fp: Path, tmp: Path):
@@ -103,11 +94,11 @@ if st.button("Generate"):
     st.session_state["exported_videos"] = exported_videos
     st.success(f"Done! Your videos are ready to download below.")
 
-# Always show download options if videos exist in session state
-if st.session_state["exported_videos"]:
-    st.markdown("### Download your videos:")
-    st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
+# After processing, always show download buttons if videos exist
+st.markdown("### Download your videos:")
+st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
 
+if st.session_state["exported_videos"]:
     for i, video_path in enumerate(st.session_state["exported_videos"]):
         video_path = Path(video_path)
         cols = st.columns([0.08, 0.72, 0.2])
@@ -139,4 +130,10 @@ if st.session_state["exported_videos"]:
         mime="application/zip",
         key="download_zip"
     )
+else:
+    st.warning("No videos available for download.")
+
+# Debug note for localhost download button issue
+if st.secrets.get("IS_LOCALHOST_DEBUG", False):
+    st.info("[DEBUG] If you do not see download buttons on localhost, try running Streamlit with a different browser or check for browser security settings/extensions that may block downloads.")
 
