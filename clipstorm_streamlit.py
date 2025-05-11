@@ -132,9 +132,9 @@ if st.session_state["exported_videos"]:
 
 # Add a reset button to clear session state and refresh the page
 def reset_app():
-    for key in st.session_state.keys():
+    for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
 
 st.button("Reset for New Batch", on_click=reset_app)
 
