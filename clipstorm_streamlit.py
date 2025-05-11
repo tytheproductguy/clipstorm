@@ -30,6 +30,12 @@ hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multi
 voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3"], accept_multiple_files=True)
 bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
 
+# Helper to strip extensions from all parts of a filename
+def strip_all_extensions(filename):
+    parts = filename.split('_')
+    stripped = ['.'.join(part.split('.')[:-1]) if '.' in part else part for part in parts]
+    return '_'.join(stripped)
+
 if st.button("Generate"):
     if not prefix: st.error("Enter a prefix"); st.stop()
     if not hooks or not voices: st.error("Upload at least one hook and voice"); st.stop()
@@ -68,11 +74,14 @@ if st.button("Generate"):
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         cat = tmp / "list.txt"
                         with open(cat, "w") as f: f.write(f"file '{h_vo}'\nfile '{b_path}'\n")
-                        final = out / f"{prefix}_{h.name}_{v.name}_{b.name}.mp4"
+                        # Remove extensions from all parts for the output filename
+                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
+                        final = out / clean_name
                         ff(["ffmpeg","-y","-f","concat","-safe","0","-i",str(cat),"-c","copy",str(final)])
                         exported_videos.append(final)
                 else:
-                    final = out / f"{prefix}_{h.name}_{v.name}.mp4"
+                    clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
+                    final = out / clean_name
                     shutil.copy(h_vo, final)
                     exported_videos.append(final)
 
@@ -81,17 +90,24 @@ if st.button("Generate"):
 
     st.success(f"Done! Your videos are ready to download below.")
     st.markdown("### Download your videos:")
-    st.info("Click the buttons below to download your videos. They will be saved to your browser's default downloads folder.")
+    st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
 
-    # Individual download buttons
-    for video_path in exported_videos:
-        with open(video_path, "rb") as video_file:
-            st.download_button(
-                label=f"Download {video_path.name}",
-                data=video_file.read(),
-                file_name=video_path.name,
-                mime="video/mp4"
-            )
+    # Individual download buttons with icon and name in a row
+    for i, video_path in enumerate(exported_videos):
+        cols = st.columns([0.08, 0.72, 0.2])
+        with cols[0]:
+            st.markdown(":arrow_down:", unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown(f"**{video_path.name}**")
+        with cols[2]:
+            with open(video_path, "rb") as video_file:
+                st.download_button(
+                    label="Download",
+                    data=video_file.read(),
+                    file_name=video_path.name,
+                    mime="video/mp4",
+                    key=f"download_{i}"
+                )
 
     # Download all as ZIP
     if exported_videos:
