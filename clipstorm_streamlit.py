@@ -80,13 +80,15 @@ if st.button("Generate"):
                 st.error(f"Error: {e}")
 
     st.success(f"Done! Your videos are ready to download below.")
+    st.markdown("### Download your videos:")
+    st.info("Click the buttons below to download your videos. They will be saved to your browser's default downloads folder.")
 
     # Individual download buttons
     for video_path in exported_videos:
         with open(video_path, "rb") as video_file:
             st.download_button(
                 label=f"Download {video_path.name}",
-                data=video_file,
+                data=video_file.read(),
                 file_name=video_path.name,
                 mime="video/mp4"
             )
