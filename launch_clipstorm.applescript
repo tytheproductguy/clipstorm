@@ -1,3 +1,3 @@
-tell application "Terminal"
-    do script "cd " & quoted form of POSIX path of "/Users/tylerscheviak/clipstorm" & " && streamlit run clipstorm_streamlit.py"
+tell application "System Events"
+    open location "https://clipstorm-rwmyfx54hwlfk6hdvfnjpf.streamlit.app/"
 end tell 
