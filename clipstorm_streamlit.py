@@ -24,14 +24,15 @@ def trim_silence(fp: Path, tmp: Path):
             fp = converted
         else:
             raise e
-    # Aggressive trimming: higher silence threshold, shorter min_silence_len
-    silence_thresh = audio.dBFS - 20  # more aggressive than -30
-    min_silence_len = 100  # shorter silence window
+    # Much more aggressive: threshold closer to speech, very short silence window
+    silence_thresh = audio.dBFS - 5  # treat anything much quieter than speech as silence
+    min_silence_len = 50  # very short
     nonsilent = silence.detect_nonsilent(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
     if not nonsilent:
         return fp, len(audio)/1000
-    start_trim = nonsilent[0][0]
-    end_trim = nonsilent[-1][1]
+    # Add a small buffer (e.g., 50ms) before/after to avoid cutting off speech
+    start_trim = max(nonsilent[0][0] - 50, 0)
+    end_trim = min(nonsilent[-1][1] + 50, len(audio))
     trimmed = audio[start_trim:end_trim]
     out = tmp / f"{fp.stem}_trimmed.wav"
     trimmed.export(out, format="wav")
