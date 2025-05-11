@@ -133,7 +133,3 @@ if st.session_state["exported_videos"]:
 else:
     st.warning("No videos available for download.")
 
-# Debug note for localhost download button issue
-if st.secrets.get("IS_LOCALHOST_DEBUG", False):
-    st.info("[DEBUG] If you do not see download buttons on localhost, try running Streamlit with a different browser or check for browser security settings/extensions that may block downloads.")
-
