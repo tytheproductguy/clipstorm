@@ -24,7 +24,10 @@ def trim_silence(fp: Path, tmp: Path):
             fp = converted
         else:
             raise e
-    nonsilent = silence.detect_nonsilent(audio, min_silence_len=200, silence_thresh=audio.dBFS-30)
+    # Aggressive trimming: higher silence threshold, shorter min_silence_len
+    silence_thresh = audio.dBFS - 20  # more aggressive than -30
+    min_silence_len = 100  # shorter silence window
+    nonsilent = silence.detect_nonsilent(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
     if not nonsilent:
         return fp, len(audio)/1000
     start_trim = nonsilent[0][0]
@@ -46,6 +49,9 @@ hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multi
 voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a"], accept_multiple_files=True)
 bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
 
+# Store trimmed voiceover paths and durations
+trimmed_voices = []
+
 # Show uploaded file durations immediately after upload
 if hooks:
     st.markdown("#### Hook video durations:")
@@ -55,12 +61,16 @@ if hooks:
         dur = get_duration(h_path)
         st.write(f"{h.name}: {dur:.2f} seconds")
 if voices:
-    st.markdown("#### Voiceover durations:")
+    st.markdown("#### Voiceover durations (original → trimmed):")
     for v in voices:
         v_path = Path(tempfile.gettempdir()) / v.name
         with open(v_path, "wb") as f: f.write(v.getbuffer())
-        dur = get_duration(v_path)
-        st.write(f"{v.name}: {dur:.2f} seconds")
+        orig_dur = get_duration(v_path)
+        # Trim immediately after upload
+        trimmed_path, trimmed_dur = trim_silence(v_path, Path(tempfile.gettempdir()))
+        trimmed_voices.append((trimmed_path, trimmed_dur))
+        percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
+        st.write(f"{v.name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
@@ -84,15 +94,15 @@ if st.button("Generate"):
     for h in hooks:
         h_path = tmp / h.name
         with open(h_path, "wb") as f: f.write(h.getbuffer())
-        for v in voices:
+        for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
             st.write(f"{h.name} + {v.name}")
-            v_path = tmp / v.name
-            with open(v_path, "wb") as f: f.write(v.getbuffer())
-
+            # Use pre-trimmed audio
+            trimmed, dur = trimmed_voices[v_idx]
+            v_path = Path(tempfile.gettempdir()) / v.name
+            # (No need to write v.getbuffer() again)
             try:
-                trimmed, dur = trim_silence(v_path, tmp)
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
                     short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
