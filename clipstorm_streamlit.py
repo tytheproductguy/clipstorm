@@ -130,11 +130,17 @@ if st.session_state["exported_videos"]:
         key="download_zip"
     )
 
-# Add a reset button to clear session state and refresh the page
-def reset_app():
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+def js_reload():
+    st.markdown(
+        """
+        <script>
+        window.location.reload();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.button("Reset for New Batch", on_click=reset_app)
+if st.button("Reset for New Batch"):
+    js_reload()
+    st.stop()
 
