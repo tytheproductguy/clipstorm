@@ -76,32 +76,41 @@ if st.button("Generate"):
                     for b in bodies:
                         b_path = tmp / b.name
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
-                        # Re-encode hook+voiceover
-                        h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
-                        ff([
-                            "ffmpeg", "-y", "-i", str(h_vo),
-                            "-c:v", "libx264", "-c:a", "aac", str(h_vo_reenc)
-                        ])
-                        # Re-encode body video
-                        body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
-                        ff([
-                            "ffmpeg", "-y", "-i", str(b_path),
-                            "-c:v", "libx264", "-c:a", "aac", str(body_reenc)
-                        ])
-                        # Concatenate using the concat filter
-                        concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_concat.mp4"
-                        ff([
-                            "ffmpeg", "-y",
-                            "-i", str(h_vo_reenc),
-                            "-i", str(body_reenc),
-                            "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
-                            "-map", "[v]", "-map", "[a]",
-                            "-c:v", "libx264", "-c:a", "aac",
-                            str(concat_out)
-                        ])
+                        # Try fast concat demuxer first
+                        cat = tmp / "list.txt"
+                        with open(cat, "w") as f: f.write(f"file '{h_vo}'\nfile '{b_path}'\n")
                         clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
                         final = out / clean_name
-                        shutil.copy(concat_out, final)
+                        try:
+                            ff([
+                                "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(cat), "-c", "copy", str(final)
+                            ])
+                        except Exception as e:
+                            st.warning(f"Fast concat failed for {final.name}, falling back to re-encoding. Reason: {e}")
+                            # Re-encode hook+voiceover
+                            h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
+                            ff([
+                                "ffmpeg", "-y", "-i", str(h_vo),
+                                "-c:v", "libx264", "-c:a", "aac", str(h_vo_reenc)
+                            ])
+                            # Re-encode body video
+                            body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
+                            ff([
+                                "ffmpeg", "-y", "-i", str(b_path),
+                                "-c:v", "libx264", "-c:a", "aac", str(body_reenc)
+                            ])
+                            # Concatenate using the concat filter
+                            concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_concat.mp4"
+                            ff([
+                                "ffmpeg", "-y",
+                                "-i", str(h_vo_reenc),
+                                "-i", str(body_reenc),
+                                "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
+                                "-map", "[v]", "-map", "[a]",
+                                "-c:v", "libx264", "-c:a", "aac",
+                                str(concat_out)
+                            ])
+                            shutil.copy(concat_out, final)
                         if final.exists():
                             exported_videos.append(str(final.resolve()))
                         else:
