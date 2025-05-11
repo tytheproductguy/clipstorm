@@ -6,6 +6,8 @@ from datetime import datetime
 import zipfile
 import io
 
+st.set_page_config(page_title="Clipstorm", layout="centered")
+
 # Minimal ffmpeg/ffprobe check for debugging
 try:
     ffmpeg_version = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -15,7 +17,6 @@ try:
 except Exception as e:
     st.error(f"FFmpeg/ffprobe not available: {e}")
 
-st.set_page_config(page_title="Clipstorm", layout="centered")
 st.title("🎥 Clipstorm Video Generator")
 
 def trim_silence(fp: Path, tmp: Path):
