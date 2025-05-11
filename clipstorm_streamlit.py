@@ -36,6 +36,9 @@ def strip_all_extensions(filename):
     stripped = ['.'.join(part.split('.')[:-1]) if '.' in part else part for part in parts]
     return '_'.join(stripped)
 
+if "exported_videos" not in st.session_state:
+    st.session_state["exported_videos"] = []
+
 if st.button("Generate"):
     if not prefix: st.error("Enter a prefix"); st.stop()
     if not hooks or not voices: st.error("Upload at least one hook and voice"); st.stop()
@@ -74,26 +77,29 @@ if st.button("Generate"):
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         cat = tmp / "list.txt"
                         with open(cat, "w") as f: f.write(f"file '{h_vo}'\nfile '{b_path}'\n")
-                        # Remove extensions from all parts for the output filename
                         clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
                         final = out / clean_name
                         ff(["ffmpeg","-y","-f","concat","-safe","0","-i",str(cat),"-c","copy",str(final)])
-                        exported_videos.append(final)
+                        exported_videos.append(str(final))
                 else:
                     clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
                     final = out / clean_name
                     shutil.copy(h_vo, final)
-                    exported_videos.append(final)
+                    exported_videos.append(str(final))
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
+    st.session_state["exported_videos"] = exported_videos
     st.success(f"Done! Your videos are ready to download below.")
+
+# Always show download options if videos exist in session state
+if st.session_state["exported_videos"]:
     st.markdown("### Download your videos:")
     st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
 
-    # Individual download buttons with icon and name in a row
-    for i, video_path in enumerate(exported_videos):
+    for i, video_path in enumerate(st.session_state["exported_videos"]):
+        video_path = Path(video_path)
         cols = st.columns([0.08, 0.72, 0.2])
         with cols[0]:
             st.markdown(":arrow_down:", unsafe_allow_html=True)
@@ -110,16 +116,17 @@ if st.button("Generate"):
                 )
 
     # Download all as ZIP
-    if exported_videos:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zipf:
-            for video_path in exported_videos:
-                zipf.write(video_path, arcname=video_path.name)
-        zip_buffer.seek(0)
-        st.download_button(
-            label="Download All Videos as ZIP",
-            data=zip_buffer,
-            file_name="all_videos.zip",
-            mime="application/zip"
-        )
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zipf:
+        for video_path in st.session_state["exported_videos"]:
+            video_path = Path(video_path)
+            zipf.write(video_path, arcname=video_path.name)
+    zip_buffer.seek(0)
+    st.download_button(
+        label="Download All Videos as ZIP",
+        data=zip_buffer,
+        file_name="all_videos.zip",
+        mime="application/zip",
+        key="download_zip"
+    )
 
