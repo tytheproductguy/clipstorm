@@ -43,11 +43,21 @@ hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multi
 voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a"], accept_multiple_files=True)
 bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
 
-# Helper to strip extensions from all parts of a filename
-def strip_all_extensions(filename):
-    parts = filename.split('_')
-    stripped = ['.'.join(part.split('.')[:-1]) if '.' in part else part for part in parts]
-    return '_'.join(stripped)
+# Show uploaded file durations immediately after upload
+if hooks:
+    st.markdown("#### Hook video durations:")
+    for h in hooks:
+        h_path = Path(tempfile.gettempdir()) / h.name
+        with open(h_path, "wb") as f: f.write(h.getbuffer())
+        dur = get_duration(h_path)
+        st.write(f"{h.name}: {dur:.2f} seconds")
+if voices:
+    st.markdown("#### Voiceover durations:")
+    for v in voices:
+        v_path = Path(tempfile.gettempdir()) / v.name
+        with open(v_path, "wb") as f: f.write(v.getbuffer())
+        dur = get_duration(v_path)
+        st.write(f"{v.name}: {dur:.2f} seconds")
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
@@ -65,22 +75,6 @@ if st.button("Generate"):
     idx = 0
     exported_videos = []
     short_hook_warnings = []
-
-    # Show uploaded file durations immediately after upload
-    if hooks:
-        st.markdown("#### Hook video durations:")
-        for h in hooks:
-            h_path = Path(tempfile.gettempdir()) / h.name
-            with open(h_path, "wb") as f: f.write(h.getbuffer())
-            dur = get_duration(h_path)
-            st.write(f"{h.name}: {dur:.2f} seconds")
-    if voices:
-        st.markdown("#### Voiceover durations:")
-        for v in voices:
-            v_path = Path(tempfile.gettempdir()) / v.name
-            with open(v_path, "wb") as f: f.write(v.getbuffer())
-            dur = get_duration(v_path)
-            st.write(f"{v.name}: {dur:.2f} seconds")
 
     for h in hooks:
         h_path = tmp / h.name
