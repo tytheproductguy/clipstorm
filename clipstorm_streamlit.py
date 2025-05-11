@@ -43,16 +43,28 @@ hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multi
 voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a"], accept_multiple_files=True)
 bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
 
-# Helper to strip extensions from all parts of a filename
-def strip_all_extensions(filename):
-    parts = filename.split('_')
-    stripped = ['.'.join(part.split('.')[:-1]) if '.' in part else part for part in parts]
-    return '_'.join(stripped)
+# Show uploaded file durations immediately after upload
+if hooks:
+    st.markdown("#### Hook video durations:")
+    for h in hooks:
+        h_path = Path(tempfile.gettempdir()) / h.name
+        with open(h_path, "wb") as f: f.write(h.getbuffer())
+        dur = get_duration(h_path)
+        st.write(f"{h.name}: {dur:.2f} seconds")
+if voices:
+    st.markdown("#### Voiceover durations:")
+    for v in voices:
+        v_path = Path(tempfile.gettempdir()) / v.name
+        with open(v_path, "wb") as f: f.write(v.getbuffer())
+        dur = get_duration(v_path)
+        st.write(f"{v.name}: {dur:.2f} seconds")
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
 
+processing = False
 if st.button("Generate"):
+    processing = True
     if not prefix: st.error("Enter a prefix"); st.stop()
     if not hooks or not voices: st.error("Upload at least one hook and voice"); st.stop()
 
@@ -64,6 +76,7 @@ if st.button("Generate"):
     progress = st.progress(0)
     idx = 0
     exported_videos = []
+    short_hook_warnings = []
 
     for h in hooks:
         h_path = tmp / h.name
@@ -77,6 +90,9 @@ if st.button("Generate"):
 
             try:
                 trimmed, dur = trim_silence(v_path, tmp)
+                hook_dur = get_duration(h_path)
+                if hook_dur < dur:
+                    short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
                 if get_duration(h_path) < dur: continue
 
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
@@ -145,11 +161,23 @@ if st.button("Generate"):
     st.session_state["exported_videos"] = exported_videos
     st.success(f"Done! Your videos are ready to download below.")
 
+    if short_hook_warnings:
+        for w in short_hook_warnings:
+            st.warning(w)
+
+    processing = False
+    st.session_state["generate_pressed"] = True
+else:
+    st.session_state["generate_pressed"] = False
+
 # After processing, always show download buttons if videos exist
 st.markdown("### Download your videos:")
-st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
 
-if st.session_state["exported_videos"]:
+if processing:
+    with st.spinner("Processing videos, please wait..."):
+        pass
+elif st.session_state["exported_videos"]:
+    st.info("Click the download icon next to each video to download it. They will be saved to your browser's default downloads folder.")
     for i, video_path in enumerate(st.session_state["exported_videos"]):
         video_path = Path(video_path)
         if video_path.exists():
@@ -169,7 +197,6 @@ if st.session_state["exported_videos"]:
                     )
         else:
             st.error(f"File not found: {video_path}")
-
     # Download all as ZIP
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
@@ -185,6 +212,8 @@ if st.session_state["exported_videos"]:
         mime="application/zip",
         key="download_zip"
     )
+elif st.session_state.get("generate_pressed", False):
+    st.warning("No videos were generated. Please check your inputs and try again.")
 else:
-    st.warning("No videos available for download.")
+    st.info("Upload your files and click Generate to create videos.")
 
