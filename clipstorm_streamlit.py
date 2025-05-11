@@ -125,7 +125,10 @@ if st.button("Generate"):
                             "-c:v", "libx264", "-c:a", "aac",
                             str(concat_out)
                         ])
-                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
+                        try:
+                            clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
+                        except Exception:
+                            clean_name = f"output_{idx}.mp4"
                         final = out / clean_name
                         shutil.copy(concat_out, final)
                         if final.exists():
@@ -134,7 +137,10 @@ if st.button("Generate"):
                             st.error(f"Failed to generate video: {final}")
                 else:
                     # Use fast concat for hook+voiceover only
-                    clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
+                    try:
+                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
+                    except Exception:
+                        clean_name = f"output_{idx}.mp4"
                     final = out / clean_name
                     cat = tmp / "list.txt"
                     with open(cat, "w") as f: f.write(f"file '{h_vo}'\n")
