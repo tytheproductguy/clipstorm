@@ -159,6 +159,9 @@ if st.button("Generate"):
     exported_videos = []
     short_hook_warnings = []
 
+    # Standardize video/audio properties for concat compatibility
+    standard_args = ["-vf", "scale=1280:720", "-r", "30", "-ar", "44100", "-ac", "2"]
+
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
         h_path = tmp / h_sanitized
@@ -195,11 +198,13 @@ if st.button("Generate"):
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(h_vo),
+                            *standard_args,
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
                         ])
                         body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(b_path),
+                            *standard_args,
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
                         ])
                         prefix_sanitized = sanitize_filename(prefix)
@@ -241,6 +246,7 @@ if st.button("Generate"):
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(h_vo),
+                            *standard_args,
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
                         ])
                         shutil.copy(h_vo_reenc, final)
@@ -276,6 +282,9 @@ elif st.button("Generate with Captions"):
     exported_videos = []
     short_hook_warnings = []
     model = whisper.load_model("base")
+
+    # Standardize video/audio properties for concat compatibility
+    standard_args = ["-vf", "scale=1280:720", "-r", "30", "-ar", "44100", "-ac", "2"]
 
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
@@ -327,11 +336,13 @@ elif st.button("Generate with Captions"):
                         h_vo_reenc = tmp / f"{captioned.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(captioned),
+                            *standard_args,
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(h_vo_reenc)
                         ])
                         body_reenc = tmp / f"{b_path.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(b_path),
+                            *standard_args,
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
                         ])
                         prefix_sanitized = sanitize_filename(prefix)
