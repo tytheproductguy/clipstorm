@@ -33,13 +33,13 @@ def trim_silence(fp: Path, tmp: Path):
             fp = converted
         else:
             raise e
-    # Much less aggressive: lower silence threshold, longer min_silence_len
-    silence_thresh = audio.dBFS - 20  # much less aggressive
-    min_silence_len = 400  # much less aggressive
+    # Endpoint-only trimming: only trim silence at start/end, not in the middle
+    silence_thresh = audio.dBFS - 20
+    min_silence_len = 100  # short, just to detect endpoints
     nonsilent = silence.detect_nonsilent(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
     if not nonsilent:
         return fp, len(audio)/1000
-    # Add a small buffer (e.g., 50ms) before/after to avoid cutting off speech
+    # Only trim the start and end
     start_trim = max(nonsilent[0][0] - 50, 0)
     end_trim = min(nonsilent[-1][1] + 50, len(audio))
     trimmed = audio[start_trim:end_trim]
