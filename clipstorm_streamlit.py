@@ -74,9 +74,13 @@ def get_video_height(fp: Path):
     return info['streams'][0]['height'] if 'streams' in info and info['streams'] else 720
 
 prefix = st.text_input("Filename prefix", "")
-hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov", "MP4", "MOV"], accept_multiple_files=True)
-voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a", "WAV", "MP3", "M4A"], accept_multiple_files=True)
-bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov", "MP4", "MOV"], accept_multiple_files=True)
+# Accept all files, filter manually
+hooks = st.file_uploader("Upload hook videos", accept_multiple_files=True)
+voices = st.file_uploader("Upload voiceovers", accept_multiple_files=True)
+bodies = st.file_uploader("Optional: upload body videos", accept_multiple_files=True)
+
+allowed_video_exts = {".mp4", ".mov"}
+allowed_audio_exts = {".wav", ".mp3", ".m4a"}
 
 # Store trimmed voiceover paths and durations
 trimmed_voices = []
@@ -85,10 +89,14 @@ trimmed_voices = []
 if hooks:
     st.markdown("#### Hook video durations:")
     for h in hooks:
+        ext = Path(h.name).suffix.lower()
+        if ext not in allowed_video_exts:
+            st.error(f"Unsupported video file type: {h.name}")
+            continue
         h_name = h.name
         if "." in h_name:
-            base, ext = h_name.rsplit(".", 1)
-            h_name = f"{base}.{ext.lower()}"
+            base, ext2 = h_name.rsplit(".", 1)
+            h_name = f"{base}.{ext2.lower()}"
         h_path = Path(tempfile.gettempdir()) / h_name
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         dur = get_duration(h_path)
@@ -96,10 +104,14 @@ if hooks:
 if voices:
     st.markdown("#### Voiceover durations (original → trimmed):")
     for v in voices:
+        ext = Path(v.name).suffix.lower()
+        if ext not in allowed_audio_exts:
+            st.error(f"Unsupported audio file type: {v.name}")
+            continue
         v_name = v.name
         if "." in v_name:
-            base, ext = v_name.rsplit(".", 1)
-            v_name = f"{base}.{ext.lower()}"
+            base, ext2 = v_name.rsplit(".", 1)
+            v_name = f"{base}.{ext2.lower()}"
         v_path = Path(tempfile.gettempdir()) / v_name
         with open(v_path, "wb") as f: f.write(v.getbuffer())
         orig_dur = get_duration(v_path)
@@ -108,6 +120,18 @@ if voices:
         trimmed_voices.append((trimmed_path, trimmed_dur))
         percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
         st.write(f"{v_name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
+if bodies:
+    for b in bodies:
+        ext = Path(b.name).suffix.lower()
+        if ext not in allowed_video_exts:
+            st.error(f"Unsupported body video file type: {b.name}")
+            continue
+        b_name = b.name
+        if "." in b_name:
+            base, ext2 = b_name.rsplit(".", 1)
+            b_name = f"{base}.{ext2.lower()}"
+        b_path = tmp / b_name
+        with open(b_path, "wb") as f: f.write(b.getbuffer())
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
