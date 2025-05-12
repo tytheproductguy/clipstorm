@@ -160,7 +160,7 @@ if st.button("Generate"):
     short_hook_warnings = []
 
     # Standardize video/audio properties for concat compatibility
-    standard_args = ["-vf", "scale=1280:720", "-r", "30", "-ar", "44100", "-ac", "2"]
+    standard_args = ["-vf", "scale=1080:1920", "-r", "30", "-ar", "44100", "-ac", "2"]
 
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
@@ -284,7 +284,7 @@ elif st.button("Generate with Captions"):
     model = whisper.load_model("base")
 
     # Standardize video/audio properties for concat compatibility
-    standard_args = ["-vf", "scale=1280:720", "-r", "30", "-ar", "44100", "-ac", "2"]
+    standard_args = ["-vf", "scale=1080:1920", "-r", "30", "-ar", "44100", "-ac", "2"]
 
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
