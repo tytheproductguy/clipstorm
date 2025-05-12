@@ -74,9 +74,9 @@ def get_video_height(fp: Path):
     return info['streams'][0]['height'] if 'streams' in info and info['streams'] else 720
 
 prefix = st.text_input("Filename prefix", "")
-hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov"], accept_multiple_files=True)
-voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a"], accept_multiple_files=True)
-bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov"], accept_multiple_files=True)
+hooks = st.file_uploader("Upload hook videos", type=["mp4", "mov", "MP4", "MOV"], accept_multiple_files=True)
+voices = st.file_uploader("Upload voiceovers", type=["wav", "mp3", "m4a", "WAV", "MP3", "M4A"], accept_multiple_files=True)
+bodies = st.file_uploader("Optional: upload body videos", type=["mp4", "mov", "MP4", "MOV"], accept_multiple_files=True)
 
 # Store trimmed voiceover paths and durations
 trimmed_voices = []
@@ -85,21 +85,29 @@ trimmed_voices = []
 if hooks:
     st.markdown("#### Hook video durations:")
     for h in hooks:
-        h_path = Path(tempfile.gettempdir()) / h.name
+        h_name = h.name
+        if "." in h_name:
+            base, ext = h_name.rsplit(".", 1)
+            h_name = f"{base}.{ext.lower()}"
+        h_path = Path(tempfile.gettempdir()) / h_name
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         dur = get_duration(h_path)
-        st.write(f"{h.name}: {dur:.2f} seconds")
+        st.write(f"{h_name}: {dur:.2f} seconds")
 if voices:
     st.markdown("#### Voiceover durations (original → trimmed):")
     for v in voices:
-        v_path = Path(tempfile.gettempdir()) / v.name
+        v_name = v.name
+        if "." in v_name:
+            base, ext = v_name.rsplit(".", 1)
+            v_name = f"{base}.{ext.lower()}"
+        v_path = Path(tempfile.gettempdir()) / v_name
         with open(v_path, "wb") as f: f.write(v.getbuffer())
         orig_dur = get_duration(v_path)
         # Trim immediately after upload
         trimmed_path, trimmed_dur = trim_silence(v_path, Path(tempfile.gettempdir()))
         trimmed_voices.append((trimmed_path, trimmed_dur))
         percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
-        st.write(f"{v.name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
+        st.write(f"{v_name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
@@ -144,7 +152,11 @@ if st.button("Generate"):
 
                 if bodies:
                     for b in bodies:
-                        b_path = tmp / b.name
+                        b_name = b.name
+                        if "." in b_name:
+                            base, ext = b_name.rsplit(".", 1)
+                            b_name = f"{base}.{ext.lower()}"
+                        b_path = tmp / b_name
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         # Always use robust concat filter for body+hook
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
@@ -270,7 +282,11 @@ elif st.button("Generate with Captions"):
 
                 if bodies:
                     for b in bodies:
-                        b_path = tmp / b.name
+                        b_name = b.name
+                        if "." in b_name:
+                            base, ext = b_name.rsplit(".", 1)
+                            b_name = f"{base}.{ext.lower()}"
+                        b_path = tmp / b_name
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         h_vo_reenc = tmp / f"{captioned.stem}_reenc.mp4"
                         ff([
