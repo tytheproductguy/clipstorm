@@ -130,7 +130,7 @@ if bodies:
         if "." in b_name:
             base, ext2 = b_name.rsplit(".", 1)
             b_name = f"{base}.{ext2.lower()}"
-        b_path = tmp / b_name
+        b_path = Path(tempfile.gettempdir()) / b_name
         with open(b_path, "wb") as f: f.write(b.getbuffer())
 
 if "exported_videos" not in st.session_state:
