@@ -7,10 +7,17 @@ import zipfile
 import io
 import whisper
 import json
+import re
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 
 st.title("🎥 Clipstorm Video Generator")
+
+def sanitize_filename(name):
+    # Replace spaces and apostrophes with underscores, remove non-ASCII
+    name = re.sub(r"[’'\"\\s]", "_", name)
+    name = re.sub(r"[^a-zA-Z0-9._-]", "", name)
+    return name
 
 def trim_silence(fp: Path, tmp: Path):
     try:
@@ -93,7 +100,7 @@ if hooks:
         if ext not in allowed_video_exts:
             st.error(f"Unsupported video file type: {h.name}")
             continue
-        h_name = h.name
+        h_name = sanitize_filename(h.name)
         if "." in h_name:
             base, ext2 = h_name.rsplit(".", 1)
             h_name = f"{base}.{ext2.lower()}"
@@ -108,7 +115,7 @@ if voices:
         if ext not in allowed_audio_exts:
             st.error(f"Unsupported audio file type: {v.name}")
             continue
-        v_name = v.name
+        v_name = sanitize_filename(v.name)
         if "." in v_name:
             base, ext2 = v_name.rsplit(".", 1)
             v_name = f"{base}.{ext2.lower()}"
@@ -126,7 +133,7 @@ if bodies:
         if ext not in allowed_video_exts:
             st.error(f"Unsupported body video file type: {b.name}")
             continue
-        b_name = b.name
+        b_name = sanitize_filename(b.name)
         if "." in b_name:
             base, ext2 = b_name.rsplit(".", 1)
             b_name = f"{base}.{ext2.lower()}"
@@ -153,7 +160,7 @@ if st.button("Generate"):
     short_hook_warnings = []
 
     for h in hooks:
-        h_path = tmp / h.name
+        h_path = tmp / sanitize_filename(h.name)
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
@@ -161,7 +168,7 @@ if st.button("Generate"):
             st.write(f"{h.name} + {v.name}")
             # Use pre-trimmed audio
             trimmed, dur = trimmed_voices[v_idx]
-            v_path = Path(tempfile.gettempdir()) / v.name
+            v_path = Path(tempfile.gettempdir()) / sanitize_filename(v.name)
             # (No need to write v.getbuffer() again)
             try:
                 hook_dur = get_duration(h_path)
@@ -176,7 +183,7 @@ if st.button("Generate"):
 
                 if bodies:
                     for b in bodies:
-                        b_name = b.name
+                        b_name = sanitize_filename(b.name)
                         if "." in b_name:
                             base, ext = b_name.rsplit(".", 1)
                             b_name = f"{base}.{ext.lower()}"
@@ -204,7 +211,7 @@ if st.button("Generate"):
                             str(concat_out)
                         ])
                         try:
-                            clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
+                            clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
                         except Exception:
                             clean_name = f"output_{idx}.mp4"
                         final = out / clean_name
@@ -216,7 +223,7 @@ if st.button("Generate"):
                 else:
                     # Use fast concat for hook+voiceover only
                     try:
-                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}") + ".mp4"
+                        clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}") + ".mp4"
                     except Exception:
                         clean_name = f"output_{idx}.mp4"
                     final = out / clean_name
@@ -268,14 +275,14 @@ elif st.button("Generate with Captions"):
     model = whisper.load_model("base")
 
     for h in hooks:
-        h_path = tmp / h.name
+        h_path = tmp / sanitize_filename(h.name)
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
             st.write(f"{h.name} + {v.name} (with captions)")
             trimmed, dur = trimmed_voices[v_idx]
-            v_path = Path(tempfile.gettempdir()) / v.name
+            v_path = Path(tempfile.gettempdir()) / sanitize_filename(v.name)
             try:
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
@@ -306,7 +313,7 @@ elif st.button("Generate with Captions"):
 
                 if bodies:
                     for b in bodies:
-                        b_name = b.name
+                        b_name = sanitize_filename(b.name)
                         if "." in b_name:
                             base, ext = b_name.rsplit(".", 1)
                             b_name = f"{base}.{ext.lower()}"
@@ -333,7 +340,7 @@ elif st.button("Generate with Captions"):
                             str(concat_out)
                         ])
                         try:
-                            clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_{b.name}_captioned") + ".mp4"
+                            clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_{b.name}_captioned") + ".mp4"
                         except Exception:
                             clean_name = f"output_{idx}_captioned.mp4"
                         final = out / clean_name
@@ -344,7 +351,7 @@ elif st.button("Generate with Captions"):
                             st.error(f"Failed to generate video: {final}")
                 else:
                     try:
-                        clean_name = strip_all_extensions(f"{prefix}_{h.name}_{v.name}_captioned") + ".mp4"
+                        clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_captioned") + ".mp4"
                     except Exception:
                         clean_name = f"output_{idx}_captioned.mp4"
                     final = out / clean_name
