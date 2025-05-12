@@ -160,20 +160,22 @@ if st.button("Generate"):
     short_hook_warnings = []
 
     for h in hooks:
-        h_path = tmp / sanitize_filename(h.name)
+        h_sanitized = sanitize_filename(h.name)
+        h_path = tmp / h_sanitized
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
-            st.write(f"{h.name} + {v.name}")
+            v_sanitized = sanitize_filename(v.name)
+            st.write(f"{h_sanitized} + {v_sanitized}")
             # Use pre-trimmed audio
             trimmed, dur = trimmed_voices[v_idx]
-            v_path = Path(tempfile.gettempdir()) / sanitize_filename(v.name)
+            v_path = Path(tempfile.gettempdir()) / v_sanitized
             # (No need to write v.getbuffer() again)
             try:
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
-                    short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
+                    short_hook_warnings.append(f"Warning: Hook video '{h_sanitized}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v_sanitized}' ({dur:.2f}s). Video will be padded to match audio.")
                 if get_duration(h_path) < dur: continue
 
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
@@ -183,11 +185,11 @@ if st.button("Generate"):
 
                 if bodies:
                     for b in bodies:
-                        b_name = sanitize_filename(b.name)
-                        if "." in b_name:
-                            base, ext = b_name.rsplit(".", 1)
-                            b_name = f"{base}.{ext.lower()}"
-                        b_path = tmp / b_name
+                        b_sanitized = sanitize_filename(b.name)
+                        if "." in b_sanitized:
+                            base, ext = b_sanitized.rsplit(".", 1)
+                            b_sanitized = f"{base}.{ext.lower()}"
+                        b_path = tmp / b_sanitized
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         # Always use robust concat filter for body+hook
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
@@ -200,7 +202,8 @@ if st.button("Generate"):
                             "ffmpeg", "-y", "-i", str(b_path),
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
                         ])
-                        concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_concat.mp4"
+                        prefix_sanitized = sanitize_filename(prefix)
+                        concat_out = tmp / f"{prefix_sanitized}_{h_sanitized}_{v_sanitized}_{b_sanitized}_concat.mp4"
                         ff([
                             "ffmpeg", "-y",
                             "-i", str(h_vo_reenc),
@@ -211,7 +214,7 @@ if st.button("Generate"):
                             str(concat_out)
                         ])
                         try:
-                            clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_{b.name}") + ".mp4"
+                            clean_name = sanitize_filename(f"{prefix_sanitized}_{h_sanitized}_{v_sanitized}_{b_sanitized}") + ".mp4"
                         except Exception:
                             clean_name = f"output_{idx}.mp4"
                         final = out / clean_name
@@ -223,7 +226,7 @@ if st.button("Generate"):
                 else:
                     # Use fast concat for hook+voiceover only
                     try:
-                        clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}") + ".mp4"
+                        clean_name = sanitize_filename(f"{sanitize_filename(prefix)}_{h_sanitized}_{v_sanitized}") + ".mp4"
                     except Exception:
                         clean_name = f"output_{idx}.mp4"
                     final = out / clean_name
@@ -275,18 +278,20 @@ elif st.button("Generate with Captions"):
     model = whisper.load_model("base")
 
     for h in hooks:
-        h_path = tmp / sanitize_filename(h.name)
+        h_sanitized = sanitize_filename(h.name)
+        h_path = tmp / h_sanitized
         with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
-            st.write(f"{h.name} + {v.name} (with captions)")
+            v_sanitized = sanitize_filename(v.name)
+            st.write(f"{h_sanitized} + {v_sanitized} (with captions)")
             trimmed, dur = trimmed_voices[v_idx]
-            v_path = Path(tempfile.gettempdir()) / sanitize_filename(v.name)
+            v_path = Path(tempfile.gettempdir()) / v_sanitized
             try:
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
-                    short_hook_warnings.append(f"Warning: Hook video '{h.name}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v.name}' ({dur:.2f}s). Video will be padded to match audio.")
+                    short_hook_warnings.append(f"Warning: Hook video '{h_sanitized}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v_sanitized}' ({dur:.2f}s). Video will be padded to match audio.")
                 if get_duration(h_path) < dur: continue
 
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
@@ -313,11 +318,11 @@ elif st.button("Generate with Captions"):
 
                 if bodies:
                     for b in bodies:
-                        b_name = sanitize_filename(b.name)
-                        if "." in b_name:
-                            base, ext = b_name.rsplit(".", 1)
-                            b_name = f"{base}.{ext.lower()}"
-                        b_path = tmp / b_name
+                        b_sanitized = sanitize_filename(b.name)
+                        if "." in b_sanitized:
+                            base, ext = b_sanitized.rsplit(".", 1)
+                            b_sanitized = f"{base}.{ext.lower()}"
+                        b_path = tmp / b_sanitized
                         with open(b_path, "wb") as f: f.write(b.getbuffer())
                         h_vo_reenc = tmp / f"{captioned.stem}_reenc.mp4"
                         ff([
@@ -329,7 +334,8 @@ elif st.button("Generate with Captions"):
                             "ffmpeg", "-y", "-i", str(b_path),
                             "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", str(body_reenc)
                         ])
-                        concat_out = tmp / f"{prefix}_{h.name}_{v.name}_{b.name}_captioned_concat.mp4"
+                        prefix_sanitized = sanitize_filename(prefix)
+                        concat_out = tmp / f"{prefix_sanitized}_{h_sanitized}_{v_sanitized}_{b_sanitized}_captioned_concat.mp4"
                         ff([
                             "ffmpeg", "-y",
                             "-i", str(h_vo_reenc),
@@ -340,7 +346,7 @@ elif st.button("Generate with Captions"):
                             str(concat_out)
                         ])
                         try:
-                            clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_{b.name}_captioned") + ".mp4"
+                            clean_name = sanitize_filename(f"{prefix_sanitized}_{h_sanitized}_{v_sanitized}_{b_sanitized}_captioned") + ".mp4"
                         except Exception:
                             clean_name = f"output_{idx}_captioned.mp4"
                         final = out / clean_name
@@ -351,7 +357,7 @@ elif st.button("Generate with Captions"):
                             st.error(f"Failed to generate video: {final}")
                 else:
                     try:
-                        clean_name = sanitize_filename(f"{prefix}_{h.name}_{v.name}_captioned") + ".mp4"
+                        clean_name = sanitize_filename(f"{sanitize_filename(prefix)}_{h_sanitized}_{v_sanitized}_captioned") + ".mp4"
                     except Exception:
                         clean_name = f"output_{idx}_captioned.mp4"
                     final = out / clean_name
