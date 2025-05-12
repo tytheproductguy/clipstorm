@@ -33,9 +33,9 @@ def trim_silence(fp: Path, tmp: Path):
             fp = converted
         else:
             raise e
-    # Much more aggressive: threshold closer to speech, very short silence window
-    silence_thresh = audio.dBFS - 5  # treat anything much quieter than speech as silence
-    min_silence_len = 50  # very short
+    # Slightly less aggressive: lower silence threshold, longer min_silence_len
+    silence_thresh = audio.dBFS - 10  # less aggressive
+    min_silence_len = 200  # less aggressive
     nonsilent = silence.detect_nonsilent(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
     if not nonsilent:
         return fp, len(audio)/1000
