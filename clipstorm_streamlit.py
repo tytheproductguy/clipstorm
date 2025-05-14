@@ -8,10 +8,15 @@ import io
 import whisper
 import json
 import re
+import requests
 
 st.set_page_config(page_title="Clipstorm", layout="centered")
 
 st.title("🎥 Clipstorm Video Generator")
+
+# ElevenLabs API key (secure in production!)
+ELEVENLABS_API_KEY = "sk_21f2b751708fec261f6d393b76ad4f72abd7db3534854806"
+ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"  # Cassidy
 
 def sanitize_filename(name):
     # Replace spaces and apostrophes with underscores, remove non-ASCII
@@ -105,9 +110,20 @@ if hooks:
             base, ext2 = h_name.rsplit(".", 1)
             h_name = f"{base}.{ext2.lower()}"
         h_path = Path(tempfile.gettempdir()) / h_name
-        with open(h_path, "wb") as f: f.write(h.getbuffer())
-        dur = get_duration(h_path)
-        st.write(f"{h_name}: {dur:.2f} seconds")
+        # Always write the file before using its path
+        try:
+            with open(h_path, "wb") as f: f.write(h.getbuffer())
+        except Exception as e:
+            st.error(f"Failed to write hook file {h_name}: {e}")
+            continue
+        if not h_path.exists():
+            st.error(f"File not found after writing: {h_path}")
+            continue
+        try:
+            dur = get_duration(h_path)
+            st.write(f"{h_name}: {dur:.2f} seconds")
+        except Exception as e:
+            st.error(f"Failed to get duration for {h_name}: {e}")
 if voices:
     st.markdown("#### Voiceover durations (original → trimmed):")
     for v in voices:
@@ -120,13 +136,24 @@ if voices:
             base, ext2 = v_name.rsplit(".", 1)
             v_name = f"{base}.{ext2.lower()}"
         v_path = Path(tempfile.gettempdir()) / v_name
-        with open(v_path, "wb") as f: f.write(v.getbuffer())
-        orig_dur = get_duration(v_path)
-        # Trim immediately after upload
-        trimmed_path, trimmed_dur = trim_silence(v_path, Path(tempfile.gettempdir()))
-        trimmed_voices.append((trimmed_path, trimmed_dur))
-        percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
-        st.write(f"{v_name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
+        # Always write the file before using its path
+        try:
+            with open(v_path, "wb") as f: f.write(v.getbuffer())
+        except Exception as e:
+            st.error(f"Failed to write voice file {v_name}: {e}")
+            continue
+        if not v_path.exists():
+            st.error(f"File not found after writing: {v_path}")
+            continue
+        try:
+            orig_dur = get_duration(v_path)
+            # Trim immediately after upload
+            trimmed_path, trimmed_dur = trim_silence(v_path, Path(tempfile.gettempdir()))
+            trimmed_voices.append((trimmed_path, trimmed_dur))
+            percent_trimmed = 100 * (orig_dur - trimmed_dur) / orig_dur if orig_dur > 0 else 0
+            st.write(f"{v_name}: {orig_dur:.2f}s → {trimmed_dur:.2f}s ({percent_trimmed:.1f}% trimmed)")
+        except Exception as e:
+            st.error(f"Failed to process voice file {v_name}: {e}")
 if bodies:
     for b in bodies:
         ext = Path(b.name).suffix.lower()
@@ -138,7 +165,15 @@ if bodies:
             base, ext2 = b_name.rsplit(".", 1)
             b_name = f"{base}.{ext2.lower()}"
         b_path = Path(tempfile.gettempdir()) / b_name
-        with open(b_path, "wb") as f: f.write(b.getbuffer())
+        # Always write the file before using its path
+        try:
+            with open(b_path, "wb") as f: f.write(b.getbuffer())
+        except Exception as e:
+            st.error(f"Failed to write body file {b_name}: {e}")
+            continue
+        if not b_path.exists():
+            st.error(f"File not found after writing: {b_path}")
+            continue
 
 if "exported_videos" not in st.session_state:
     st.session_state["exported_videos"] = []
@@ -165,7 +200,6 @@ if st.button("Generate"):
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
         h_path = tmp / h_sanitized
-        with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
@@ -174,7 +208,6 @@ if st.button("Generate"):
             # Use pre-trimmed audio
             trimmed, dur = trimmed_voices[v_idx]
             v_path = Path(tempfile.gettempdir()) / v_sanitized
-            # (No need to write v.getbuffer() again)
             try:
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
@@ -193,8 +226,6 @@ if st.button("Generate"):
                             base, ext = b_sanitized.rsplit(".", 1)
                             b_sanitized = f"{base}.{ext.lower()}"
                         b_path = tmp / b_sanitized
-                        with open(b_path, "wb") as f: f.write(b.getbuffer())
-                        # Always use robust concat filter for body+hook
                         h_vo_reenc = tmp / f"{h_vo.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(h_vo),
@@ -289,7 +320,6 @@ elif st.button("Generate with Captions"):
     for h in hooks:
         h_sanitized = sanitize_filename(h.name)
         h_path = tmp / h_sanitized
-        with open(h_path, "wb") as f: f.write(h.getbuffer())
         for v_idx, v in enumerate(voices):
             idx += 1
             progress.progress(idx/total)
@@ -332,7 +362,6 @@ elif st.button("Generate with Captions"):
                             base, ext = b_sanitized.rsplit(".", 1)
                             b_sanitized = f"{base}.{ext.lower()}"
                         b_path = tmp / b_sanitized
-                        with open(b_path, "wb") as f: f.write(b.getbuffer())
                         h_vo_reenc = tmp / f"{captioned.stem}_reenc.mp4"
                         ff([
                             "ffmpeg", "-y", "-i", str(captioned),
@@ -392,6 +421,26 @@ else:
 # After processing, always show download buttons if videos exist
 st.markdown("### Download your videos:")
 
+# Helper to convert audio to Cassidy voice using ElevenLabs
+def convert_voice_to_cassidy(audio_path, out_path):
+    url = f"https://api.elevenlabs.io/v1/voice/{ELEVENLABS_VOICE_ID}/voice-to-voice"
+    headers = {
+        "xi-api-key": ELEVENLABS_API_KEY,
+    }
+    files = {
+        "audio": open(audio_path, "rb")
+    }
+    data = {
+        "output_format": "mp3"
+    }
+    response = requests.post(url, headers=headers, files=files, data=data)
+    if response.status_code == 200:
+        with open(out_path, "wb") as f:
+            f.write(response.content)
+        return True
+    else:
+        return False
+
 if processing:
     with st.spinner("Processing videos, please wait..."):
         pass
@@ -400,7 +449,7 @@ elif st.session_state["exported_videos"]:
     for i, video_path in enumerate(st.session_state["exported_videos"]):
         video_path = Path(video_path)
         if video_path.exists():
-            cols = st.columns([0.08, 0.72, 0.2])
+            cols = st.columns([0.08, 0.62, 0.15, 0.15])
             with cols[0]:
                 st.markdown(":arrow_down:", unsafe_allow_html=True)
             with cols[1]:
@@ -414,6 +463,32 @@ elif st.session_state["exported_videos"]:
                         mime="video/mp4",
                         key=f"download_{i}"
                     )
+            with cols[3]:
+                # Button to convert to Cassidy voice
+                cassidy_video_path = video_path.parent / (video_path.stem + "_cassidy.mp4")
+                if st.button("Cassidy Voice", key=f"cassidy_{i}"):
+                    # Extract audio
+                    audio_path = video_path.parent / (video_path.stem + "_orig_audio.wav")
+                    ff(["ffmpeg", "-y", "-i", str(video_path), "-vn", "-acodec", "pcm_s16le", str(audio_path)])
+                    cassidy_audio_path = video_path.parent / (video_path.stem + "_cassidy_audio.mp3")
+                    with st.spinner("Converting voice to Cassidy (female voice)..."):
+                        success = convert_voice_to_cassidy(audio_path, cassidy_audio_path)
+                    if success:
+                        # Replace audio in video
+                        ff(["ffmpeg", "-y", "-i", str(video_path), "-i", str(cassidy_audio_path), "-c:v", "copy", "-map", "0:v:0", "-map", "1:a:0", "-shortest", str(cassidy_video_path)])
+                        if cassidy_video_path.exists():
+                            with open(cassidy_video_path, "rb") as cassidy_file:
+                                st.download_button(
+                                    label="Download Cassidy Voice",
+                                    data=cassidy_file.read(),
+                                    file_name=cassidy_video_path.name,
+                                    mime="video/mp4",
+                                    key=f"cassidy_download_{i}"
+                                )
+                        else:
+                            st.error("Failed to mux Cassidy audio with video.")
+                    else:
+                        st.error("Failed to convert audio to Cassidy voice using ElevenLabs API.")
         else:
             st.error(f"File not found: {video_path}")
     # Download all as ZIP
