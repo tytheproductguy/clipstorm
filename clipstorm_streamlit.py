@@ -212,8 +212,6 @@ if st.button("Generate"):
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
                     short_hook_warnings.append(f"Warning: Hook video '{h_sanitized}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v_sanitized}' ({dur:.2f}s). Video will be padded to match audio.")
-                if get_duration(h_path) < dur: continue
-
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
                 ff(["ffmpeg","-y","-i",str(h_path),"-t",str(dur),"-c:v","libx264","-preset","veryfast","-c:a","aac",str(h_cut)])
                 h_vo = tmp / f"{h_path.stem}_{v_path.stem}_ov.mp4"
@@ -331,8 +329,6 @@ elif st.button("Generate with Captions"):
                 hook_dur = get_duration(h_path)
                 if hook_dur < dur:
                     short_hook_warnings.append(f"Warning: Hook video '{h_sanitized}' ({hook_dur:.2f}s) is shorter than trimmed audio '{v_sanitized}' ({dur:.2f}s). Video will be padded to match audio.")
-                if get_duration(h_path) < dur: continue
-
                 h_cut = tmp / f"{h_path.stem}_cut.mp4"
                 ff(["ffmpeg","-y","-i",str(h_path),"-t",str(dur),"-c:v","libx264","-preset","veryfast","-c:a","aac",str(h_cut)])
                 h_vo = tmp / f"{h_path.stem}_{v_path.stem}_ov.mp4"
